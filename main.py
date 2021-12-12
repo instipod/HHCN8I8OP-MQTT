@@ -30,6 +30,9 @@ def on_mqtt_message(client, userdata, message):
                     client.publish(mqtt_base + "outputs/{}/state".format(output_number), "ON")
                 else:
                     client.publish(mqtt_base + "outputs/{}/state".format(output_number), "OFF")
+    except ConnectionError as e:
+        #device is not available at this time
+        pass
     except Exception as e:
         logging.warning("Ignoring an exception ({}) that occurred while processing an incoming MQTT message.".format(e))
 
@@ -48,17 +51,26 @@ def on_mqtt_connect(client, userdata, flags, rc):
 
 
 def on_mqtt_disconnect(client, userdata, rc):
+    global device_driver
     logging.warning("MQTT is now disconnected!")
+    device_driver.disconnect(skip=True)
+    sys.exit(2)
 
 
 def on_device_connect():
     global mqtt_client, mqtt_base
+    logging.info("Device has come online.")
     mqtt_client.publish(mqtt_base + "connection", "online", retain=True)
 
 
 def on_device_disconnect():
-    global mqtt_client, mqtt_base
+    global mqtt_client, mqtt_base, device_driver
+    logging.warning("Device has gone offline!")
     mqtt_client.publish(mqtt_base + "connection", "offline", retain=True)
+
+    while not device_driver.connect(skip=True):
+        logging.warning("Failed to reconnect to the device, backing off for 30 seconds...")
+        time.sleep(30)
 
 
 def periodic_input_update(mqtt_client):
@@ -86,10 +98,13 @@ def periodic_input_update(mqtt_client):
                     else:
                         logging.info("Publishing new input value to MQTT:  Input {} is now ON".format(input))
                         mqtt_client.publish(mqtt_base + "inputs/{}".format(input), "ON", retain=True)
+            except ConnectionError as e:
+                # device is not available at this time
+                time.sleep(3)
             except Exception as e:
                 logging.warning("Ignoring exception ({}) that occurred while reading value of input {}.".format(e, input))
 
-        time.sleep(1)
+        time.sleep(0.5)
 
 
 def publish_ha_discovery_info(mqtt_client):
@@ -171,9 +186,7 @@ def startup():
 
     device_driver = HHCIODriver(device_hostname, device_port, on_device_connect, on_device_disconnect)
     if not device_driver.connect():
-        logging.critical("Could not connect to the device!")
-        sys.exit(1)
-        return
+        logging.critical("Could not connect to the device at startup!")
 
     input_thread = threading.Thread(target=periodic_input_update, args=(mqtt_client,))
     input_thread.start()

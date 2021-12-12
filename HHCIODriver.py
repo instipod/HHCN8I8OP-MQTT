@@ -38,15 +38,26 @@ class HHCIODriver(object):
         if self.on_disconnect_event is not None:
             self.on_disconnect_event()
 
-    def connect(self):
+    def connect(self, skip=False):
         logging.debug("Trying to open a socket connection")
 
         try:
             with self.socket_lock:
-                self.socket.connect((self.host,self.port))
+                if not self.connected:
+                    try:
+                        #try to close it in case it thinks it is open
+                        self.socket.close()
+                    except:
+                        pass
+                    self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    self.socket.settimeout(3)
+                    self.socket.connect((self.host,self.port))
+                else:
+                    return True
         except socket.error as e:
             logging.critical("Failed to connect to the device: {}".format(e))
-            self._on_socket_disconnect()
+            if not skip:
+                self._on_socket_disconnect()
             return False
 
         self._on_socket_connect()
@@ -55,11 +66,13 @@ class HHCIODriver(object):
 
         return True
 
-    def disconnect(self):
+    def disconnect(self, skip=False):
         if not self.connected:
             return
 
         self.socket.close()
+        if not skip:
+            self._on_socket_disconnect()
 
     def operate_relay(self, relay, state):
         if not self.connected:
@@ -74,14 +87,14 @@ class HHCIODriver(object):
 
         logging.debug("Sending socket message: {}".format(message))
 
-        with self.socket_lock:
-            try:
+        try:
+            with self.socket_lock:
                 self.socket.send(message.encode())
                 self.socket.recv(5)
-            except socket.error as e:
-                logging.critical("Failed to send command to the device: {}".format(e))
-                self._on_socket_disconnect()
-                raise ConnectionError("Driver is not connected!")
+        except socket.error as e:
+            logging.critical("Failed to send command to the device: {}".format(e))
+            self._on_socket_disconnect()
+            raise ConnectionError("Driver is not connected!")
 
     def read_input(self, input):
         if not self.connected:
@@ -89,16 +102,17 @@ class HHCIODriver(object):
         if input <= 0 or input > 8:
             raise ValueError("Invalid input number specified!")
 
-        with self.socket_lock:
-            try:
+
+        try:
+            with self.socket_lock:
                 self.socket.send('input'.encode())
-
                 data = self.socket.recv(15).decode()
-                position = 4+input
 
-                return data[-1 * input]
-            except socket.error as e:
-                logging.critical("Failed to send command to the device: {}".format(e))
-                self._on_socket_disconnect()
-                raise ConnectionError("Driver is not connected!")
+            position = 4+input
+
+            return data[-1 * input]
+        except socket.error as e:
+            logging.critical("Failed to send command to the device: {}".format(e))
+            self._on_socket_disconnect()
+            raise ConnectionError("Driver is not connected!")
 
