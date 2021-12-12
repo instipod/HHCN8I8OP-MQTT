@@ -27,9 +27,9 @@ def on_mqtt_message(client, userdata, message):
                 logging.info("Received MQTT message to command output {} to state {}".format(output_number, payload))
                 device_driver.operate_relay(output_number, (payload == "ON"))
                 if payload == "ON":
-                    client.publish(mqtt_base + "outputs/{}/status".format(output_number), "ON")
+                    client.publish(mqtt_base + "outputs/{}/state".format(output_number), "ON")
                 else:
-                    client.publish(mqtt_base + "outputs/{}/status".format(output_number), "OFF")
+                    client.publish(mqtt_base + "outputs/{}/state".format(output_number), "OFF")
     except Exception as e:
         logging.warning("Ignoring an exception ({}) that occurred while processing an incoming MQTT message.".format(e))
 
@@ -98,9 +98,9 @@ def publish_ha_discovery_info(mqtt_client):
     logging.info("Publishing Home Assistant-compatible discovery messages.")
 
     for input in range(1, 9):
-        mqtt_client.publish("homeassistant/binary_sensor/{}-input-{}/config".format(mqtt_prefix, input), '{{"name": "{} Input {}", "object_id": "{}_input_{}", "state_topic": "{}inputs/{}", "avty_t": "{}connection"}}'.format(mqtt_prefix, input, mqtt_prefix, input, mqtt_base, input, mqtt_base))
+        mqtt_client.publish("homeassistant/binary_sensor/{}-input-{}/config".format(mqtt_prefix, input), '{{"name": "{} Input {}", "object_id": "{}_input_{}", "unique_id": "{}_input_{}", "state_topic": "{}inputs/{}", "avty_t": "{}connection", "dev": {{"mf": "Unbranded", "mdl": "HHC-N8I8OP", "ids": "{}", "name": "{}"}}}}'.format(mqtt_prefix, input, mqtt_prefix, input, mqtt_prefix, input, mqtt_base, input, mqtt_base, "HHC-" + mqtt_prefix, mqtt_prefix))
     for output in range(1, 9):
-        mqtt_client.publish("homeassistant/switch/{}-output-{}/config".format(mqtt_prefix, output), '{{"name": "{} Output {}", "object_id": "{}_output_{}", "command_topic": "{}outputs/{}/command", "state_topic": "{}outputs/{}/state", "avty_t": "{}connection"}}'.format(mqtt_prefix, output, mqtt_prefix, output, mqtt_base, output, mqtt_base, output, mqtt_base))
+        mqtt_client.publish("homeassistant/switch/{}-output-{}/config".format(mqtt_prefix, output), '{{"name": "{} Output {}", "object_id": "{}_output_{}", "unique_id": "{}_output_{}", "command_topic": "{}outputs/{}/command", "state_topic": "{}outputs/{}/state", "avty_t": "{}connection", "dev": {{"mf": "Unbranded", "mdl": "HHC-N8I8OP", "ids": "{}", "name": "{}"}}}}'.format(mqtt_prefix, output, mqtt_prefix, output, mqtt_prefix, output, mqtt_base, output, mqtt_base, output, mqtt_base, "HHC-" + mqtt_prefix, mqtt_prefix))
 
 
 def startup():
