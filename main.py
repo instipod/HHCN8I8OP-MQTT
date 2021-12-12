@@ -53,8 +53,6 @@ def on_mqtt_connect(client, userdata, flags, rc):
 def on_mqtt_disconnect(client, userdata, rc):
     global device_driver
     logging.warning("MQTT is now disconnected!")
-    device_driver.disconnect(skip=True)
-    sys.exit(2)
 
 
 def on_device_connect():

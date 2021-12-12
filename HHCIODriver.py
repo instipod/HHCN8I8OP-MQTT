@@ -50,7 +50,7 @@ class HHCIODriver(object):
                     except:
                         pass
                     self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                    self.socket.settimeout(3)
+                    self.socket.settimeout(5)
                     self.socket.connect((self.host,self.port))
                 else:
                     return True
