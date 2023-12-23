@@ -7,10 +7,12 @@ import paho.mqtt.client as mqtt
 import sys
 import threading
 import time
+import hashlib
 
 mqtt_prefix = os.getenv("MQTT_PREFIX")
 mqtt_base = "devices/" + str(mqtt_prefix) + "/"
-mqtt_client = mqtt.Client("HHC-MQTT-Bridge")
+mqtt_client_id = "HHC-MQTT-Bridge-" + str(hashlib.sha256(os.urandom(32)).hexdigest()[:7])
+mqtt_client = mqtt.Client(mqtt_client_id)
 device_driver = None
 
 
