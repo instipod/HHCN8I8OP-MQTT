@@ -32,6 +32,14 @@ def on_mqtt_message(client, userdata, message):
                     client.publish(mqtt_base + "outputs/{}/state".format(output_number), "ON")
                 else:
                     client.publish(mqtt_base + "outputs/{}/state".format(output_number), "OFF")
+
+        # Check whether Home Assistant was rebooted needs to 
+        # republish discovery info to re-register the device
+        elif "homeassistant/status" in topic:
+            if os.getenv("HA_COMPATIBLE") is not None:
+                if payload == "online":
+                    publish_ha_discovery_info(client)
+
     except ConnectionError as e:
         #device is not available at this time
         pass
@@ -49,6 +57,10 @@ def on_mqtt_connect(client, userdata, flags, rc):
     client.subscribe(mqtt_base + "outputs/6/command")
     client.subscribe(mqtt_base + "outputs/7/command")
     client.subscribe(mqtt_base + "outputs/8/command")
+
+    if os.getenv("HA_COMPATIBLE") is not None:
+        client.subscribe("homeassistant/status")
+
     logging.info("MQTT is now connected!")
 
 
