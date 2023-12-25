@@ -28,6 +28,9 @@ def on_mqtt_message(client, userdata, message):
                 output_number = int(topic_parts[3])
                 logging.info("Received MQTT message to command output {} to state {}".format(output_number, payload))
                 device_driver.operate_relay(output_number, (payload == "ON"))
+                # Here, we inform the MQTT client or Home Assistant about the new potential state of the relay.
+                # It is possible that the relay's state did not change, so output polling might revert the state
+                # back to its previous or unchanged condition.
                 if payload == "ON":
                     client.publish(mqtt_base + "outputs/{}/state".format(output_number), "ON")
                 else:
@@ -118,6 +121,27 @@ def periodic_input_update(mqtt_client):
 
         time.sleep(0.5)
 
+# Get the actual relay statuses from the relay controller
+def periodic_output_update(mqtt_client):
+    global device_driver, mqtt_base
+
+    while True:
+        try:
+            relay_statuses = device_driver.read_outputs()
+            for x in range(0, 8):
+                if relay_statuses[x] == "0":
+                    mqtt_client.publish(mqtt_base + "outputs/{}/state".format(x+1), "OFF")
+                else:
+                    mqtt_client.publish(mqtt_base + "outputs/{}/state".format(x+1), "ON")
+
+        except ConnectionError as e:
+            # device is not available at this time
+            time.sleep(3)
+        except Exception as e:
+            logging.warning("Ignoring exception ({}) that occurred while reading value of relay outputs {}.".format(e, input))
+
+        time.sleep(0.5)
+
 
 def publish_ha_discovery_info(mqtt_client):
     global mqtt_prefix, mqtt_base
@@ -201,7 +225,9 @@ def startup():
         logging.critical("Could not connect to the device at startup!")
 
     input_thread = threading.Thread(target=periodic_input_update, args=(mqtt_client,))
+    output_thread = threading.Thread(target=periodic_output_update, args=(mqtt_client,))
     input_thread.start()
+    output_thread.start()
 
 
 startup()
