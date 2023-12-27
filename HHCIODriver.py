@@ -96,6 +96,24 @@ class HHCIODriver(object):
             self._on_socket_disconnect()
             raise ConnectionError("Driver is not connected!")
 
+    def read_outputs(self):
+        if not self.connected:
+            raise ConnectionError("Driver is not connected!")
+
+        try:
+            with self.socket_lock:
+                self.socket.send('read'.encode())
+                data = self.socket.recv(13).decode()
+                bits = data[5:] # length of returned string "relay"
+                # Return bits in reverse order because the relay controller
+                # returns them in a way that the last bit is the first relay
+                return bits[::-1]
+
+        except socket.error as e:
+            logging.critical("Failed to send command \"read\" to the device: {}".format(e))
+            self._on_socket_disconnect()
+            raise ConnectionError("Driver is not connected!")
+
     def read_input(self, input):
         if not self.connected:
             raise ConnectionError("Driver is not connected!")
